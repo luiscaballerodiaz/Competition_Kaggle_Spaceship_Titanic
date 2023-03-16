@@ -3,12 +3,14 @@ import math
 
 
 class DataPlot:
+    """Class to manage the data visualization for current exercise"""
 
     def __init__(self):
         self.fig_width = 20
         self.fig_height = 10
 
     def pie_plot(self, df, column_target):
+        """Create pie plot for the distribution of the column called column_target in the dataframe df"""
         fig, ax = plt.subplots(1, 1, figsize=(self.fig_width, self.fig_height))
         weights = df.groupby([column_target]).size()
         labels = weights.index.values
@@ -27,6 +29,9 @@ class DataPlot:
         plt.close()
 
     def cat_features(self, df, feat_cat, column_target, multi=0):
+        """Plot categorical features
+        - multi = 0 applies each categorical features vs column_target in an individual plot
+        - multi = 1 applies all categorical features vs column_target in the same plot"""
         if multi == 0:
             ncolumns = 2
             nlen = len(feat_cat)
@@ -63,6 +68,7 @@ class DataPlot:
         plt.close()
 
     def num_features(self, df, feat_num, column_target):
+        """Plot a histogram for each numerical feature"""
         ncolumns = 2
         nlen = len(feat_num)
         fig, axes = plt.subplots(math.ceil(nlen / ncolumns), ncolumns, figsize=(self.fig_width, self.fig_height))
