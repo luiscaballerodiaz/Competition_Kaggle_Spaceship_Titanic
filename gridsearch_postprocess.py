@@ -11,19 +11,21 @@ class GridSearchPostProcess:
         self.fig_width = 20
         self.fig_height = 10
         self.subplot_row = 2
+        self.models = []
+        self.dicts = []
 
     def param_sweep_matrix(self, params, test_score):
         """Postprocess the cross validation grid search results and plot the parameter sweep"""
-        models, dicts = self.decode_gridsearch_results(params, test_score)
-        for m, model in enumerate(models):
-            feat_sweep, feat_no_sweep = self.unique_params_sweep(m, dicts)
+        self.decode_gridsearch_results(params, test_score)
+        for m, model in enumerate(self.models):
+            feat_sweep, feat_no_sweep = self.unique_params_sweep(m)
             if len(feat_sweep) == 0:  # No sweep parameters
-                test_matrix = np.array([dicts[m]['test']])
+                test_matrix = np.array([self.dicts[m]['test']])
                 self.plot_params_sweep(model, test_matrix, feat_no_sweep)
             elif len(feat_sweep) == 1:  # 1 sweep parameter
                 keys = list(feat_sweep.keys())
                 values = list(feat_sweep.values())
-                test_matrix = np.array([dicts[m]['test']])
+                test_matrix = np.array([self.dicts[m]['test']])
                 self.plot_params_sweep(model, test_matrix, feat_no_sweep,
                                        xtick=values[0], xtag=keys[0])
             elif len(feat_sweep) == 2:  # 2 sweep parameters
@@ -32,41 +34,39 @@ class GridSearchPostProcess:
                 test_matrix = np.zeros([len(values[1]), len(values[0])])
                 for j in range(len(values[1])):
                     for h in range(len(values[0])):
-                        for z in range(len(dicts[m]['test'])):
-                            if dicts[m][keys[0]][z] == values[0][h] and dicts[m][keys[1]][z] == values[1][j]:
-                                test_matrix[j, h] = dicts[m]['test'][z]
+                        for z in range(len(self.dicts[m]['test'])):
+                            if self.dicts[m][keys[0]][z] == values[0][h] and self.dicts[m][keys[1]][z] == values[1][j]:
+                                test_matrix[j, h] = self.dicts[m]['test'][z]
                 self.plot_params_sweep(model, test_matrix, feat_no_sweep,
                                        xtick=values[0], xtag=keys[0],
                                        ytick=values[1], ytag=keys[1])
             elif len(feat_sweep) >= 3:  # 3 or more sweep parameter
                 keys = list(feat_sweep.keys())
                 values = list(feat_sweep.values())
-                test_matrix, zdict, i1, i2 = self.matrix3d_calculation(m, keys, values, dicts)
+                test_matrix, zdict, i1, i2 = self.matrix3d_calculation(m, keys, values)
                 self.plot_params_sweep(model, test_matrix, feat_no_sweep,
                                        xtick=values[i1], xtag=keys[i1],
                                        ytick=values[i2], ytag=keys[i2],
                                        zdict=zdict)
 
-    @staticmethod
-    def decode_gridsearch_results(params, test_score):
+    def decode_gridsearch_results(self, params, test_score):
         """Assess the output grid search params to identify the sweep parametrization used per each model. It returns:
         - Models: list of the models used in the gridsearch
         - Dicts: list of dicts (one per each model) with the sweep parametrization"""
-        models = []
-        dicts = []
+
         for i in range(len(params)):
             string = str(params[i]['estimator'])
             model = string[:string.index('(')]
-            if model not in models:
-                models.append(model)
-                dicts.append({})
+            if model not in self.models:
+                self.models.append(model)
+                self.dicts.append({})
                 index = -1
             else:
-                index = models.index(model)
-            if 'test' in list(dicts[index].keys()):
-                dicts[index]['test'] += [test_score[i]]
+                index = self.models.index(model)
+            if 'test' in list(self.dicts[index].keys()):
+                self.dicts[index]['test'] += [test_score[i]]
             else:
-                dicts[index]['test'] = [test_score[i]]
+                self.dicts[index]['test'] = [test_score[i]]
             for key, value in params[i].items():
                 if key == 'estimator':
                     continue
@@ -74,18 +74,16 @@ class GridSearchPostProcess:
                     key = key.replace(key[:key.index('__') + 2], '')
                 elif key == 'preprocess' and value is not None:
                     value = str(value)[str(value).index('scaling') + 10:str(value).index('()')]
-                if key in list(dicts[index].keys()):
-                    dicts[index][key] += [value]
+                if key in list(self.dicts[index].keys()):
+                    self.dicts[index][key] += [value]
                 else:
-                    dicts[index][key] = [value]
-        return models, dicts
+                    self.dicts[index][key] = [value]
 
-    @staticmethod
-    def unique_params_sweep(index, dicts):
+    def unique_params_sweep(self, index):
         """Generate one dict for non sweep parameters and other for sweep parameters only capturing unique values"""
         feat_sweep = {}
         feat_no_sweep = {}
-        for key, value in dicts[index].items():
+        for key, value in self.dicts[index].items():
             if key == 'test':
                 continue
             if value.count(value[0]) == len(value):
@@ -95,15 +93,12 @@ class GridSearchPostProcess:
                 [feat_sweep[key].append(val) for val in value if val not in feat_sweep[key]]
         return feat_sweep, feat_no_sweep
 
-    @staticmethod
-    def matrix3d_calculation(index, keys, values, dicts):
+    def matrix3d_calculation(self, index, keys, values):
         """Calculate the 3D test matrix to plot consisting of a group of 2D matrix. The parameters with longer
         sweep parametrization are kept in a 2D matrix and depth is added to sweep the rest of parameters"""
         i1 = 0
         i2 = 0
-        depth = 1
         for i in range(len(values)):
-            depth *= len(values[i])
             if len(values[i]) > i2 and len(values[i]) > i1:
                 i2 = i1
                 i1 = i
@@ -111,8 +106,7 @@ class GridSearchPostProcess:
                 i2 = i
         extra_dims = [list(range(len(values[x]))) for x in range(len(values)) if x not in [i1, i2]]
         combs = list(itertools.product(*extra_dims))
-        depth /= (len(values[i1]) * len(values[i2]))
-        depth = int(depth)
+        depth = len(combs)
         test_matrix = np.zeros([len(values[i2]), len(values[i1]), depth])
         zdict = []
         for p in range(depth):
@@ -121,13 +115,14 @@ class GridSearchPostProcess:
                 zdict[p][keys[i]] = values[i][combs[p][i]]
             for j in range(len(values[i2])):
                 for h in range(len(values[i1])):
-                    for z in range(len(dicts[index]['test'])):
-                        if dicts[index][keys[i1]][z] == values[i1][h] and dicts[index][keys[i2]][z] == values[i2][j]:
+                    for z in range(len(self.dicts[index]['test'])):
+                        if self.dicts[index][keys[i1]][z] == values[i1][h] \
+                                and self.dicts[index][keys[i2]][z] == values[i2][j]:
                             for i in range(len(extra_dims)):
-                                if dicts[index][keys[i]][z] != values[i][combs[p][i]]:
+                                if self.dicts[index][keys[i]][z] != values[i][combs[p][i]]:
                                     break
                             else:
-                                test_matrix[j, h, p] = dicts[index]['test'][z]
+                                test_matrix[j, h, p] = self.dicts[index]['test'][z]
         return test_matrix, zdict, i1, i2
 
     def plot_params_sweep(self, algorithm, test_values, fixed_params,
