@@ -4,7 +4,7 @@ from gridsearch_postprocess import GridSearchPostProcess
 import utils
 import sys
 
-feature_engineering = 0
+feat_engineering = 0
 visualization = DataPlot()  # Instantiate an object for DataPlot to manage plots in this exercise
 sweep = GridSearchPostProcess()  # Instantiate an object for GridSearchPostProcess to manage the grid search results
 pd.set_option('display.max_columns', None)  # Enable option to display all dataframe columns
