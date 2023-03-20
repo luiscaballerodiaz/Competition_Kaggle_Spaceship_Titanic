@@ -2,8 +2,9 @@ import pandas as pd
 from data_visualization import DataPlot
 from gridsearch_postprocess import GridSearchPostProcess
 import utils
+import sys
 
-
+feature_engineering = 0
 visualization = DataPlot()  # Instantiate an object for DataPlot to manage plots in this exercise
 sweep = GridSearchPostProcess()  # Instantiate an object for GridSearchPostProcess to manage the grid search results
 pd.set_option('display.max_columns', None)  # Enable option to display all dataframe columns
@@ -17,7 +18,7 @@ feat_cat = ['HomePlanet', 'CryoSleep', 'Deck', 'Num', 'Side', 'Destination', 'VI
 feat_num = ['Age', 'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
 
 # Scrub data and generate plots
-df = utils.data_analytics(visualization, df, column_target, feat_cat, feat_num)
+df = utils.data_analytics(visualization, df, column_target, feat_cat, feat_num, feat_engineering)
 
 # Data split and scaling
 x_train, x_test, y_train, y_test, index_cat, index_num = utils.onehot_split(df, column_target, feat_cat, feat_num)

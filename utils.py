@@ -122,7 +122,7 @@ def onehot_split(df, column_target, feat_cat, feat_num):
     return x_train, x_test, y_train, y_test, feat_cat, feat_num
 
 
-def data_analytics(visualization, df, column_target, feat_cat, feat_num):
+def data_analytics(visualization, df, column_target, feat_cat, feat_num, feat_engineering):
     print(df)
     print(f'\nOriginal dataframe size: {df.shape}\n')
     df = df.dropna(axis=0, subset=column_target)  # Consider ONLY rows with non NA values in target column

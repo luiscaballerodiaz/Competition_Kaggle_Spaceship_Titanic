@@ -113,16 +113,23 @@ class GridSearchPostProcess:
         zdict = []
         for p in range(depth):
             zdict.append({})
-            for i in range(len(extra_dims)):
-                zdict[p][keys[i]] = values[i][combs[p][i]]
+            ind = 0
+            for i in range(len(values)):
+                if i != i1 and i != i2:
+                    zdict[p][keys[i]] = values[i][combs[p][ind]]
+                    ind += 1
             for j in range(len(values[i2])):
                 for h in range(len(values[i1])):
                     for z in range(len(self.dicts[index]['test'])):
                         if self.dicts[index][keys[i1]][z] == values[i1][h] \
                                 and self.dicts[index][keys[i2]][z] == values[i2][j]:
-                            for i in range(len(extra_dims)):
-                                if self.dicts[index][keys[i]][z] != values[i][combs[p][i]]:
-                                    break
+                            ind = 0
+                            for i in range(len(values)):
+                                if i != i1 and i != i2:
+                                    if self.dicts[index][keys[i]][z] == values[i][combs[p][ind]]:
+                                        ind += 1
+                                    else:
+                                        break
                             else:
                                 test_matrix[j, h, p] = self.dicts[index]['test'][z]
         return test_matrix, zdict, i1, i2
