@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import itertools
+import os
 import math
 
 
@@ -28,70 +30,86 @@ class DataPlot:
         plt.savefig('Passengers transported distribution.png', bbox_inches='tight')
         plt.close()
 
-    def cat_features(self, df, feat_cat, column_target, multi=0):
-        """Plot categorical features
-        - multi = 0 applies each categorical features vs column_target in an individual plot
-        - multi = 1 applies all categorical features vs column_target in the same plot"""
-        if multi == 0:
-            ncolumns = 2
-            nlen = len(feat_cat)
-            tag = 'Categorical features.png'
-        else:
-            ncolumns = 1
-            nlen = 1
-            tag = 'Multi categorical features.png'
-        fig, axes = plt.subplots(math.ceil(nlen / ncolumns), ncolumns, figsize=(self.fig_width, self.fig_height))
-        spare_axes = ncolumns - nlen % ncolumns
+    def combined_features(self, df, fcat, column_target):
+        feat_cat = fcat.copy()
+        if column_target in feat_cat:
+            feat_cat.remove(column_target)
+        combs = list(itertools.combinations(feat_cat, 2))
+        for i, comb in enumerate(combs):
+            list_feat = list(comb)
+            fig, ax = plt.subplots(1, 1, figsize=(self.fig_width, self.fig_height))
+            feats = list_feat + [column_target]
+            df.groupby(feats).size().unstack().plot(kind='bar', ax=ax)
+            ax.grid(visible=True)
+            ax.tick_params(axis='both', labelsize=10, labelrotation=70)
+            ax.set_ylabel('FREQUENCY', fontsize=14, fontweight='bold')
+            ax.set_xlabel('FEATURE MAGNITUDE ' + str(list_feat[0].upper()) + ' and ' + str(list_feat[1].upper()),
+                          fontsize=14, fontweight='bold')
+            ax.set_title('COMBINED PLOT FOR FEATURE CORRELATION ASSESSMENT BETWEEN ' + str(list_feat[0].upper()) +
+                         ', ' + str(list_feat[1].upper()) + ' AND ' + str(column_target.upper()), fontsize=20,
+                         fontweight='bold')
+            if column_target == 'Transported':
+                plt.savefig(os.getcwd() + '\\TargetPlots\\' + str(column_target) + '_' + str(list_feat[0]) + '_' +
+                            str(list_feat[1]) + '_Combined_Plot.png', bbox_inches='tight')
+            else:
+                plt.savefig(os.getcwd() + '\\CombinedPlots\\' + str(column_target) + '_' + str(list_feat[0]) + '_' +
+                            str(list_feat[1]) + '_Combined_Plot.png', bbox_inches='tight')
+            plt.close()
+
+    def cat_features(self, df, feat_cat, column_target):
+        """Plot categorical features"""
+        fcat = feat_cat.copy()
+        if 'Num' in fcat:
+            fcat.remove('Num')
+        if 'ShipLocation' in fcat:
+            fcat.remove('ShipLocation')
+        ncolumns = 3
+        plots = len(fcat)
+        if column_target in fcat:
+            backup = fcat[-1]
+            fcat[-1] = column_target
+            fcat[fcat.index(column_target)] = backup
+            plots -= 1
+        fig, axes = plt.subplots(math.ceil(plots / ncolumns), ncolumns, figsize=(self.fig_width, self.fig_height))
+        spare_axes = ncolumns - plots % ncolumns
         if spare_axes == ncolumns:
             spare_axes = 0
         for axis in range(ncolumns - 1, ncolumns - 1 - spare_axes, -1):
-            fig.delaxes(axes[math.ceil(nlen / ncolumns) - 1, axis])
-        if multi == 0:
-            ax = axes.ravel()
-            for i, column in enumerate(feat_cat):
-                df.groupby([column, column_target]).size().unstack(0).plot(kind='bar', ax=ax[i])
-                ax[i].tick_params(axis='x', labelrotation=60)
-                ax[i].set_ylabel('FREQUENCY', fontsize=12, fontweight='bold')
-                ax[i].set_xlabel('TRANSPORTED', fontsize=12, fontweight='bold')
-                ax[i].set_title('TRANSPORTED DISTRIBUTION GROUPED BY ' + column.upper(), fontweight='bold', fontsize=14)
-                ax[i].grid(visible=True)
-        else:
-            feat_cat.append(column_target)
-            df.groupby(feat_cat).size().unstack().plot(kind='bar', ax=axes)
-            axes.tick_params(axis='x', labelrotation=60)
-            axes.set_ylabel('FREQUENCY', fontsize=16, fontweight='bold')
-            axes.set_xlabel(feat_cat[:-1], fontsize=16, fontweight='bold')
-            axes.set_title('TRANSPORTED DISTRIBUTION GROUPED BY ' + str(feat_cat[:-1]), fontweight='bold', fontsize=24)
-            axes.grid(visible=True)
+            if (math.ceil(plots / ncolumns) - 1) == 0:
+                fig.delaxes(axes[axis])
+            else:
+                fig.delaxes(axes[math.ceil(plots / ncolumns) - 1, axis])
+        ax = axes.ravel()
+        for i in range(plots):
+            df.groupby([fcat[i], column_target]).size().unstack().plot(kind='bar', ax=ax[i])
+            ax[i].tick_params(axis='x', labelrotation=10)
+            ax[i].set_ylabel('FREQUENCY', fontsize=10, fontweight='bold')
+            ax[i].set_xlabel('FEATURE MAGNITUDE ' + fcat[i].upper(), fontsize=10, fontweight='bold')
+            ax[i].set_title(column_target.upper() + ' DISTRIBUTION GROUPED BY ' + fcat[i].upper(),
+                            fontweight='bold', fontsize=12)
+            ax[i].grid(visible=True)
         fig.tight_layout()
-        plt.savefig(tag, bbox_inches='tight')
+        plt.savefig(column_target.title() + ' distribution per features.png', bbox_inches='tight')
         plt.close()
 
-    def num_features(self, df, feat_num, column_target):
+    def num_features(self, df, feat_num, binary_feat, bins_width):
         """Plot a histogram for each numerical feature"""
-        ncolumns = 2
-        nlen = len(feat_num)
-        fig, axes = plt.subplots(math.ceil(nlen / ncolumns), ncolumns, figsize=(self.fig_width, self.fig_height))
-        spare_axes = ncolumns - nlen % ncolumns
-        if spare_axes == ncolumns:
-            spare_axes = 0
-        for axis in range(ncolumns - 1, ncolumns - 1 - spare_axes, -1):
-            fig.delaxes(axes[math.ceil(nlen / ncolumns) - 1, axis])
-        ax = axes.ravel()
-        for i, column in enumerate(feat_num):
-            output0 = df[df[column_target] == False][column]
-            output1 = df[df[column_target] == True][column]
-            max_val = max(max(output0), max(output1))
-            bins = list(range(0, int(max_val), max(1, int(max_val / 25))))
-            ax[i].hist(output0, histtype='stepfilled', bins=bins, alpha=0.25, color="#0000FF", lw=0)
-            ax[i].hist(output1, histtype='stepfilled', bins=bins, alpha=0.25, color='#FF0000', lw=0)
-            ax[i].set_title(column.upper(), fontsize=12, y=1.0, pad=-14, fontweight='bold')
-            ax[i].grid(visible=True)
-            ax[i].tick_params(axis='both', labelsize=10)
-            ax[i].set_ylabel('FREQUENCY', fontsize=10)
-            ax[i].set_xlabel('FEATURE MAGNITUDE', fontsize=10)
-            ax[i].legend(['Transported=False', 'Transported=True'], loc="best")
-        fig.suptitle('HISTOGRAM FOR NUMERICAL FEATURES GROUPED BY TRANSPORTED VALUE', fontsize=18, fontweight='bold')
+        fig, ax = plt.subplots(1, 1, figsize=(self.fig_width, self.fig_height))
+        output0 = df[df[binary_feat] == False][feat_num]
+        output1 = df[df[binary_feat] == True][feat_num]
+        max_val = max(max(output0), max(output1))
+        bins = list(range(bins_width, int(max_val), bins_width))
+        ax.set_xticks(bins)
+        ax.set_xticklabels(bins, rotation=70)
+        ax.grid(visible=True)
+        ax.tick_params(axis='both', labelsize=10)
+        ax.set_ylabel('FREQUENCY', fontsize=14, fontweight='bold')
+        ax.set_xlabel('FEATURE MAGNITUDE ' + feat_num.upper(), fontsize=14, fontweight='bold')
+        ax.set_title('HISTOGRAM FOR ' + feat_num.upper() + ' FEATURE GROUPED BY TARGET', fontsize=20, fontweight='bold')
+        ax.hist(output0, histtype='stepfilled', bins=bins, alpha=0.25, color='b', lw=0, label=binary_feat + '=0')
+        ax.hist(output1, histtype='stepfilled', bins=bins, alpha=0.25, color='r', lw=0, label=binary_feat + '=1')
+        ax.legend()
         fig.tight_layout()
-        plt.savefig('Numerical features.png', bbox_inches='tight')
+        plt.savefig(binary_feat.title() + ' distribution grouped by ' + feat_num + '.png', bbox_inches='tight')
         plt.close()
+

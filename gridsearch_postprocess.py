@@ -55,7 +55,6 @@ class GridSearchPostProcess:
         """Assess the output grid search params to identify the sweep parametrization used per each model. It returns:
         - Models: list of the models used in the gridsearch
         - Dicts: list of dicts (one per each model) with the sweep parametrization"""
-
         for i in range(len(params)):
             string = str(params[i][self.model_step])
             model = string[:string.index('(')]
@@ -98,14 +97,9 @@ class GridSearchPostProcess:
     def matrix3d_calculation(self, index, keys, values):
         """Calculate the 3D test matrix to plot consisting of a group of 2D matrix. The parameters with longer
         sweep parametrization are kept in a 2D matrix and depth is added to sweep the rest of parameters"""
-        i1 = 0
-        i2 = 0
-        for i in range(len(values)):
-            if len(values[i]) > i2 and len(values[i]) > i1:
-                i2 = i1
-                i1 = i
-            elif len(values[i]) > i2:
-                i2 = i
+        ind_values = np.argsort(np.array([len(values[i]) for i in range(len(values))]))
+        i1 = ind_values[-1]
+        i2 = ind_values[-2]
         extra_dims = [list(range(len(values[x]))) for x in range(len(values)) if x not in [i1, i2]]
         combs = list(itertools.product(*extra_dims))
         depth = len(combs)
@@ -161,7 +155,7 @@ class GridSearchPostProcess:
                     ax.text(h + 0.5, j + 0.5, str(round(test_values[j, h], 4)),
                             ha="center", va="center", color="k", fontweight='bold', fontsize=12)
         else:
-            fig, axes = plt.subplots(round(math.ceil(len(zdict)) / self.subplot_row), self.subplot_row,
+            fig, axes = plt.subplots(math.ceil(len(zdict) / self.subplot_row), self.subplot_row,
                                      figsize=(self.fig_width, self.fig_height))
             spare_axes = self.subplot_row - len(zdict) % self.subplot_row
             if spare_axes == self.subplot_row:
@@ -177,8 +171,8 @@ class GridSearchPostProcess:
                 divider = make_axes_locatable(ax[p])
                 cax = divider.append_axes('right', size='5%', pad=0.05)
                 fig.colorbar(pcm, cax=cax, orientation='vertical')
-                ax[p].set_xlabel('Parameter sweep ' + xtag.upper(), fontsize=16)
-                ax[p].set_ylabel('Parameter sweep ' + ytag.upper(), fontsize=16)
+                ax[p].set_xlabel(xtag.upper(), fontsize=16)
+                ax[p].set_ylabel(ytag.upper(), fontsize=16)
                 ax[p].set_title('Parameter ' + str(zdict[p]), fontsize=18)
                 ax[p].set_xticks(np.arange(0.5, len(xtick) + 0.5), labels=xtick, fontsize=14)
                 plt.setp(ax[p].get_xticklabels(), rotation=0, ha="center", rotation_mode="anchor")
