@@ -73,8 +73,10 @@ class GridSearchPostProcess:
                     continue
                 elif '__' in key:
                     key = key.replace(key[:key.index('__') + 2], '')
-                elif key == 'preprocess' and value is not None:
+                elif key == 'scaling' and value is not None:
                     value = str(value)[str(value).index('scaling') + 10:str(value).index('()')]
+                elif key == 'preprocess' and value is not None:
+                    value = str(value)[str(value).index('preprocess') + 13:str(value).index('()')]
                 if key in list(self.dicts[index].keys()):
                     self.dicts[index][key] += [value]
                 else:
