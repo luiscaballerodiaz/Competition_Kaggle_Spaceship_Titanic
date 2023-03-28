@@ -49,10 +49,12 @@ class DataPlot:
                          ', ' + str(list_feat[1].upper()) + ' AND ' + str(column_target.upper()), fontsize=20,
                          fontweight='bold')
             if column_target == 'Transported':
-                plt.savefig(os.getcwd() + '\\TargetPlots\\' + str(column_target) + '_' + str(list_feat[0]) + '_' +
+                os.makedirs('TargetCombinedPlots', exist_ok=True)
+                plt.savefig('TargetCombinedPlots\\' + str(column_target) + '_' + str(list_feat[0]) + '_' +
                             str(list_feat[1]) + '_Combined_Plot.png', bbox_inches='tight')
             else:
-                plt.savefig(os.getcwd() + '\\CombinedPlots\\' + str(column_target) + '_' + str(list_feat[0]) + '_' +
+                os.makedirs('CombinedPlots', exist_ok=True)
+                plt.savefig('CombinedPlots\\' + str(column_target) + '_' + str(list_feat[0]) + '_' +
                             str(list_feat[1]) + '_Combined_Plot.png', bbox_inches='tight')
             plt.close()
 
@@ -89,7 +91,9 @@ class DataPlot:
                             fontweight='bold', fontsize=12)
             ax[i].grid(visible=True)
         fig.tight_layout()
-        plt.savefig(column_target.title() + ' distribution per features.png', bbox_inches='tight')
+        os.makedirs('Plots', exist_ok=True)
+        plt.savefig('Plots\\' + column_target.title() + ' distribution per features.png',
+                    bbox_inches='tight')
         plt.close()
 
     def num_features(self, df, feat_num, binary_feat, bins_width):
@@ -110,6 +114,8 @@ class DataPlot:
         ax.hist(output1, histtype='stepfilled', bins=bins, alpha=0.25, color='r', lw=0, label=binary_feat + '=1')
         ax.legend()
         fig.tight_layout()
-        plt.savefig(binary_feat.title() + ' distribution grouped by ' + feat_num + '.png', bbox_inches='tight')
+        os.makedirs('Plots', exist_ok=True)
+        plt.savefig('Plots\\' + binary_feat.title() + ' distribution grouped by ' + feat_num + '.png',
+                    bbox_inches='tight')
         plt.close()
 

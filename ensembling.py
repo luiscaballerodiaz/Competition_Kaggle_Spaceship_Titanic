@@ -1,148 +1,114 @@
 import numpy as np
-from sklearn.compose import ColumnTransformer
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import LinearSVC
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
-from scipy.optimize import minimize
 
 
-def ensemble_models(pass_id, x_sub, x_train, x_val, x_test, y_train, y_val, y_test, columns, loops):
-    preprocess = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
-    x_train_scaled = preprocess.fit_transform(x_train)
-    x_val_scaled = preprocess.transform(x_val)
-    x_test_scaled = preprocess.transform(x_test)
-    x_sub_scaled = preprocess.transform(x_sub)
+def make_predictions(input_model, x_sub, x_train, x_test, y_train, y_test, columns):
 
-    model = KNeighborsClassifier(n_neighbors=15)
-    model.fit(x_train_scaled, y_train)
-    print('KNN TRAIN SCORE: {:.4f}'.format(model.score(x_train_scaled, y_train)))
-    print('KNN VALIDATION SCORE: {:.4f}'.format(model.score(x_val_scaled, y_val)))
-    print('KNN TEST SCORE: {:.4f}\n'.format(model.score(x_test_scaled, y_test)))
-    knn_train_preds = model.predict_proba(x_train_scaled)[:, 1].reshape(-1, 1)
-    knn_val_preds = model.predict_proba(x_val_scaled)[:, 1].reshape(-1, 1)
-    knn_test_preds = model.predict_proba(x_test_scaled)[:, 1].reshape(-1, 1)
-    knn_sub_preds = model.predict_proba(x_sub_scaled)[:, 1].reshape(-1, 1)
+    if 'gradient' in input_model.lower():
+        model = GradientBoostingClassifier(random_state=0, learning_rate=0.1, n_estimators=50, max_depth=5)
+        pipe = Pipeline([('estimator', model)])
 
-    model = RandomForestClassifier(random_state=0, max_features=80, n_estimators=200, max_depth=10)
-    model.fit(x_train, y_train)
-    print('RANDOM FOREST TRAIN SCORE: {:.4f}'.format(model.score(x_train, y_train)))
-    print('RANDOM FOREST VALIDATION SCORE: {:.4f}'.format(model.score(x_val, y_val)))
-    print('RANDOM FOREST TEST SCORE: {:.4f}\n'.format(model.score(x_test, y_test)))
-    forest_train_preds = model.predict_proba(x_train)[:, 1].reshape(-1, 1)
-    forest_val_preds = model.predict_proba(x_val)[:, 1].reshape(-1, 1)
-    forest_test_preds = model.predict_proba(x_test)[:, 1].reshape(-1, 1)
-    forest_sub_preds = model.predict_proba(x_sub)[:, 1].reshape(-1, 1)
+    elif 'random' in input_model.lower() or 'forest' in input_model.lower():
+        model = RandomForestClassifier(random_state=0, max_features=90, n_estimators=100, max_depth=10)
+        pipe = Pipeline([('estimator', model)])
 
-    model = GradientBoostingClassifier(random_state=0, learning_rate=0.1, n_estimators=50, max_depth=5)
-    model.fit(x_train, y_train)
-    print('GRADIENT BOOSTING TRAIN SCORE: {:.4f}'.format(model.score(x_train, y_train)))
-    print('GRADIENT BOOSTING VALIDATION SCORE: {:.4f}'.format(model.score(x_val, y_val)))
-    print('GRADIENT BOOSTING TEST SCORE: {:.4f}\n'.format(model.score(x_test, y_test)))
-    gradient_train_preds = model.predict_proba(x_train)[:, 1].reshape(-1, 1)
-    gradient_val_preds = model.predict_proba(x_val)[:, 1].reshape(-1, 1)
-    gradient_test_preds = model.predict_proba(x_test)[:, 1].reshape(-1, 1)
-    gradient_sub_preds = model.predict_proba(x_sub)[:, 1].reshape(-1, 1)
+    elif 'logreg' in input_model.lower() or 'logistic' in input_model.lower() or 'regression' in input_model.lower():
+        model = LogisticRegression(random_state=0, C=2.5, penalty='l1', solver='saga')
+        scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
+        pipe = Pipeline([('scaling', scale), ('estimator', model)])
 
-    model = LinearSVC(random_state=0, dual=False, C=0.1)
-    model = CalibratedClassifierCV(model)
-    model.fit(x_train_scaled, y_train)
-    print('LINEARSVC MODEL TRAIN SCORE: {:.4f}'.format(model.score(x_train_scaled, y_train)))
-    print('LINEARSVC MODEL VALIDATION SCORE: {:.4f}'.format(model.score(x_val_scaled, y_val)))
-    print('LINEARSVC MODEL TEST SCORE: {:.4f}\n'.format(model.score(x_test_scaled, y_test)))
-    linearsvc_train_preds = model.predict_proba(x_train_scaled)[:, 1].reshape(-1, 1)
-    linearsvc_val_preds = model.predict_proba(x_val_scaled)[:, 1].reshape(-1, 1)
-    linearsvc_test_preds = model.predict_proba(x_test_scaled)[:, 1].reshape(-1, 1)
-    linearsvc_sub_preds = model.predict_proba(x_sub_scaled)[:, 1].reshape(-1, 1)
+    elif 'mlp' in input_model.lower():
+        model = MLPClassifier(random_state=0, alpha=0.5, hidden_layer_sizes=128, activation='relu')
+        scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
+        pipe = Pipeline([('scaling', scale), ('estimator', model)])
 
-    model = LogisticRegression(random_state=0, C=0.5)
-    model.fit(x_train_scaled, y_train)
-    print('LOGISTIC REGRESSION MODEL TRAIN SCORE: {:.4f}'.format(model.score(x_train_scaled, y_train)))
-    print('LOGISTIC REGRESSION MODEL VALIDATION SCORE: {:.4f}'.format(model.score(x_val_scaled, y_val)))
-    print('LOGISTIC REGRESSION TEST SCORE: {:.4f}\n'.format(model.score(x_test_scaled, y_test)))
-    logreg_train_preds = model.predict_proba(x_train_scaled)[:, 1].reshape(-1, 1)
-    logreg_val_preds = model.predict_proba(x_val_scaled)[:, 1].reshape(-1, 1)
-    logreg_test_preds = model.predict_proba(x_test_scaled)[:, 1].reshape(-1, 1)
-    logreg_sub_preds = model.predict_proba(x_sub_scaled)[:, 1].reshape(-1, 1)
+    elif 'svc' in input_model.lower():
+        model = SVC(random_state=0, probability=True, C=50, gamma=0.005)
+        scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
+        pipe = Pipeline([('scaling', scale), ('estimator', model)])
 
-    model = MLPClassifier(random_state=0, alpha=0.5, hidden_layer_sizes=128, activation='relu')
-    model.fit(x_train_scaled, y_train)
-    print('MLP MODEL TRAIN SCORE: {:.4f}'.format(model.score(x_train_scaled, y_train)))
-    print('MLP MODEL VALIDATION SCORE: {:.4f}'.format(model.score(x_val_scaled, y_val)))
-    print('MLP MODEL TEST SCORE: {:.4f}\n'.format(model.score(x_test_scaled, y_test)))
-    mlp_train_preds = model.predict_proba(x_train_scaled)[:, 1].reshape(-1, 1)
-    mlp_val_preds = model.predict_proba(x_val_scaled)[:, 1].reshape(-1, 1)
-    mlp_test_preds = model.predict_proba(x_test_scaled)[:, 1].reshape(-1, 1)
-    mlp_sub_preds = model.predict_proba(x_sub_scaled)[:, 1].reshape(-1, 1)
+    else:
+        print('ERROR: NO MODEL DETECTED TO ENSEMBLE')
 
-    model = SVC(random_state=0, C=50, gamma=0.005)
-    model = CalibratedClassifierCV(model)
-    model.fit(x_train_scaled, y_train)
-    print('SVC MODEL TRAIN SCORE: {:.4f}'.format(model.score(x_train_scaled, y_train)))
-    print('SVC MODEL VALIDATION SCORE: {:.4f}'.format(model.score(x_val_scaled, y_val)))
-    print('SVC MODEL TEST SCORE: {:.4f}\n'.format(model.score(x_test_scaled, y_test)))
-    svc_train_preds = model.predict_proba(x_train_scaled)[:, 1].reshape(-1, 1)
-    svc_val_preds = model.predict_proba(x_val_scaled)[:, 1].reshape(-1, 1)
-    svc_test_preds = model.predict_proba(x_test_scaled)[:, 1].reshape(-1, 1)
-    svc_sub_preds = model.predict_proba(x_sub_scaled)[:, 1].reshape(-1, 1)
+    grid_search = GridSearchCV(pipe, {}, cv=5, scoring='accuracy')
+    grid_search.fit(x_train, y_train)
+    cv_acc = grid_search.best_score_
+    print("{} CROSS VALIDATION SCORE: {:.4f}\n".format(input_model.upper(), cv_acc))
+    print('{} TEST SCORE: {:.4f}\n'.format(input_model.upper(), grid_search.score(x_test, y_test)))
+    test_preds = grid_search.predict_proba(x_test)[:, 1]
+    sub_preds = grid_search.predict_proba(x_sub)[:, 1]
 
-    y_train = np.array(y_train)
+    return test_preds, sub_preds, cv_acc
+
+
+def ensemble_predictions(pass_id, y_test_preds, y_sub_preds, acc, y_test):
+
     y_test = np.array(y_test)
-    y_val = np.array(y_val)
+    # Optimal weight and threshold calculation according to cross validation performance
+    opt_weights1 = acc - min(acc) * 0.999
+    opt_weights1 /= sum(opt_weights1)
+    opt_th1, opt_acc1 = optimal_threshold(y_test, y_test_preds, opt_weights1)
+    print('\nOPTIMAL WEIGHTS (distribution based on cross validation performance): {}'.format(opt_weights1))
+    print('OPTIMAL THRESHOLD: {:.4f}'.format(opt_th1))
+    print('ENSEMBLE TEST SCORE WITH OPTIMAL WEIGHTS AND DECISION THRESHOLD: {:.4f}'.format(opt_acc1))
 
-    y_train_preds = np.c_[gradient_train_preds, logreg_train_preds, linearsvc_train_preds, svc_train_preds, mlp_train_preds]
-    y_val_preds = np.c_[gradient_val_preds, logreg_val_preds, linearsvc_val_preds, svc_val_preds, mlp_val_preds]
-    y_test_preds = np.c_[gradient_test_preds, logreg_test_preds, linearsvc_test_preds, svc_test_preds, mlp_test_preds]
-    y_sub_preds = np.c_[gradient_sub_preds, logreg_sub_preds, linearsvc_sub_preds, svc_sub_preds, mlp_sub_preds]
-    opt_weights, acc_val = calculate_optimal_weights(y_val, y_val_preds, loops)
-    acc_test = accuracy_score(opt_weights, y_test, y_test_preds)
-    acc_train = accuracy_score(opt_weights, y_train, y_train_preds)
+    # Optimal weight and threshold calculation uniform distribution among models
+    opt_weights2 = [1 / len(acc)] * 3
+    opt_th2, opt_acc2 = optimal_threshold(y_test, y_test_preds, opt_weights2)
+    print('\nOPTIMAL WEIGHTS (uniform distribution): {}'.format(opt_weights2))
+    print('OPTIMAL THRESHOLD: {:.4f}'.format(opt_th2))
+    print('ENSEMBLE TEST SCORE WITH OPTIMAL WEIGHTS AND DECISION THRESHOLD: {:.4f}'.format(opt_acc2))
 
-    print('\nENSEMBLE TRAIN SCORE: {:.4f}'.format(acc_train))
-    print('ENSEMBLE VALIDATION SCORE: {:.4f}'.format(acc_val))
-    print('ENSEMBLE TEST SCORE: {:.4f}'.format(acc_test))
-    print('OPTIMAL WEIGHTS: {}'.format(opt_weights))
+    # Optimal weight and threshold calculation with customized weights
+    opt_weights3 = [0.3, 0.5, 0.2]
+    opt_th3 = 0.5
+    opt_acc3 = accuracy_score(y_test, y_test_preds, opt_weights3, opt_th3)
+    print('\nOPTIMAL WEIGHTS (customized): {}'.format(opt_weights3))
+    print('OPTIMAL THRESHOLD: {:.4f}'.format(opt_th3))
+    print('ENSEMBLE TEST SCORE WITH OPTIMAL WEIGHTS AND DECISION THRESHOLD: {:.4f}'.format(opt_acc3))
 
-    y_sub = np.round(np.dot(y_sub_preds, opt_weights))
+    # Create submission
+    y_sub1 = np.where(np.dot(y_sub_preds, opt_weights1) >= opt_th1, True, False)
+    y_sub2 = np.where(np.dot(y_sub_preds, opt_weights2) >= opt_th2, True, False)
+    y_sub3 = np.where(np.dot(y_sub_preds, opt_weights3) >= opt_th3, True, False)
     df_submission = pass_id.to_frame()
-    df_submission['Transported'] = y_sub
-    df_submission.replace({1: True, 0: False}, inplace=True)
-    df_submission.to_csv('Submission.csv', index=False)
+    df_submission['Transported'] = y_sub1
+    df_submission.to_csv('Submission1.csv', index=False)
+    df_submission['Transported'] = y_sub2
+    df_submission.to_csv('Submission2.csv', index=False)
+    df_submission['Transported'] = y_sub3
+    df_submission.to_csv('Submission3.csv', index=False)
 
 
-def accuracy_score(weights, y_true, y_preds):
+def optimal_threshold(y_test, y_test_preds, opt_weights):
+    # Optimal threshold calculation
+    max_acc = 0
+    max_th = 0
+    threshold = np.linspace(0.25, 0.75, 100)
+    for th in threshold:
+        acc = accuracy_score(y_test, y_test_preds, opt_weights, th)
+        if acc >= max_acc:
+            max_acc = acc
+            max_th = th
+    return max_th, max_acc
+
+
+def accuracy_score(y_true, y_preds, weights, threshold):
     ok = 0
     for i in range(len(y_true)):
-        y_pred = np.round(np.dot(y_preds[i], weights))
-        if y_pred == y_true[i]:
-            ok += 1
+        y_pred = np.dot(y_preds[i], weights)
+        if y_pred >= threshold:
+            if y_true[i] == 1:
+                ok += 1
+        else:
+            if y_true[i] == 0:
+                ok += 1
     return ok / len(y_true)
-
-
-def minimize_acc(weights, y_true, y_preds):
-    """ Calculate the score of a weighted model predictions"""
-    return -accuracy_score(weights, y_true, y_preds)
-
-
-def calculate_optimal_weights(y_true, y_preds, sims):
-    acc_opt = 100
-    acc_weights_opt = 0
-    for i in range(sims):
-        weights_ini = np.random.rand(y_preds.shape[1])
-        weights_ini /= sum(weights_ini)
-        acc_minimizer = minimize(fun=minimize_acc,
-                                 x0=weights_ini,
-                                 method='trust-constr',
-                                 args=(y_true, y_preds),
-                                 bounds=[(0, 1)] * y_preds.shape[1],
-                                 options={'disp': True, 'maxiter': 10000},
-                                 constraints={'type': 'eq', 'fun': lambda w: w.sum() - 1})
-        if acc_minimizer.fun < acc_opt:
-            acc_opt = acc_minimizer.fun
-            acc_weights_opt = acc_minimizer.x
-    return acc_weights_opt, -acc_opt

@@ -24,8 +24,11 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import PolynomialFeatures
 
 
-def feat_sweep_gridsearch(df, param_dict, target, feat_cat, feat_num, degree):
-    combs = list(itertools.combinations(feat_cat, degree))
+def feat_sweep_gridsearch(test_size, df, df_full, param_dict, target, feat_cat, feat_cat_sweep, feat_num, degree):
+    print('\nFIXED CATEGORICAL FEATURES: {}'.format(feat_cat))
+    print('FIXED DATAFRAME FEATURES: {}'.format(list(df.columns)))
+    print('SWEEP CATEGORICAL FEATURES TO CREATE NEW COMBINED FEATURE: {}\n'.format(feat_cat_sweep))
+    combs = list(itertools.combinations(feat_cat_sweep, degree))
     best_scores = [0] * 10
     best_feats = [''] * 10
     for i, comb in enumerate(combs):
@@ -33,9 +36,9 @@ def feat_sweep_gridsearch(df, param_dict, target, feat_cat, feat_num, degree):
         fcat = feat_cat.copy()
         params = copy.deepcopy(param_dict)
         fcat.append('Feat')
-        df['Feat'] = df[list(comb)].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-        x_sub, x_train, x_val, x_test, y_train, y_val, y_test, index_num = onehot_split(df, target, fcat, feat_num)
-        pd_grid, score = pipeline_gridsearch(x_train, x_val, x_test, y_train, y_val, y_test, index_num, params,
+        df['Feat'] = df_full[list(comb)].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
+        x_sub, x_train, x_test, y_train, y_test, index_num = onehot_split(test_size, df, target, fcat, feat_num)
+        pd_grid, score = pipeline_gridsearch(x_train, x_test, y_train, y_test, index_num, params,
                                              'accuracy', 5)
         df.drop(['Feat'], axis=1, inplace=True)
         best_scores.append(score)
@@ -48,7 +51,7 @@ def feat_sweep_gridsearch(df, param_dict, target, feat_cat, feat_num, degree):
     return best_feats, best_scores
 
 
-def pipeline_gridsearch(x_train, x_val, x_test, y_train, y_val, y_test, index_num, params, scoring, nfolds,
+def pipeline_gridsearch(x_train, x_test, y_train, y_test, index_num, params, scoring, nfolds,
                         pass_id=None, x_sub=None):
     time0 = time.time()
     param_grid = decode_gridsearch_params(params, index_num)
@@ -62,7 +65,6 @@ def pipeline_gridsearch(x_train, x_val, x_test, y_train, y_val, y_test, index_nu
     print("Best parameters: {}\n".format(grid_search.best_params_))  # Show best parameters
     print("Best cross-validation score: {:.4f}\n".format(grid_search.best_score_))  # Show best scores
     model = grid_search.best_estimator_  # Create model with best parametrization
-    print('\nBEST MODEL VALIDATION SCORE: {:.4f}\n'.format(model.score(x_val, y_val)))  # Calculate best model val acc
     print('\nBEST MODEL TEST SCORE: {:.4f}\n'.format(model.score(x_test, y_test)))  # Calculate best model val acc
     if pass_id is not None:
         y_sub = model.predict(x_sub)
@@ -134,9 +136,8 @@ def decode_gridsearch_params(params, columns):
     return params
 
 
-def onehot_split(df_ini, column_target, feat_cat, feat_num, df_sub_ini=None):
+def onehot_split(test_size, df_ini, column_target, feat_cat, feat_num, df_sub_ini=None):
     df = df_ini.copy()
-
     # Set Target column to individual tensor with 1/0 and remove it from dataframe
     target = df[column_target].replace({True: 1, False: 0})
     df.drop(column_target, axis=1, inplace=True)
@@ -169,18 +170,58 @@ def onehot_split(df_ini, column_target, feat_cat, feat_num, df_sub_ini=None):
         if column in feat_num:
             index_num.append(i)
     # Create training and testing sets with 80/20% keeping target distribution same as original
-    x_trainval, x_test, y_trainval, y_test = train_test_split(df, target, test_size=0.2,
-                                                              shuffle=True, stratify=target, random_state=1)
-    x_train, x_val, y_train, y_val = train_test_split(x_trainval, y_trainval, test_size=0.2,
-                                                      shuffle=True, stratify=y_trainval, random_state=1)
+    x_train, x_test, y_train, y_test = train_test_split(df, target, test_size=test_size,
+                                                        shuffle=True, stratify=target, random_state=1)
     x_test = np.array(x_test)
-    x_val = np.array(x_val)
     x_train = np.array(x_train)
     y_test = np.array(y_test)
-    y_val = np.array(y_val)
     y_train = np.array(y_train)
     print(f'\nX TRAIN SHAPE: {x_train.shape}\nY TRAIN SHAPE: {y_train.shape}\n')
-    print(f'\nX VALIDATION SHAPE: {x_val.shape}\nY VALIDATION SHAPE: {y_val.shape}\n')
     print(f'\nX TEST SHAPE: {x_test.shape}\nY TEST SHAPE: {y_test.shape}\n')
 
-    return x_sub, x_train, x_val, x_test, y_train, y_val, y_test, index_num
+    return x_sub, x_train, x_test, y_train, y_test, index_num
+
+
+def get_sim_params(model, mode):
+    if mode == 0:
+        if 'gradient' in model.lower():
+            params = [{'preprocess': [''], 'scaling': [''], 'estimator': ['gradient boosting'],
+                       'estimator__n_estimators': [50], 'estimator__max_depth': [5], 'estimator__learning_rate': [0.1]}]
+        elif 'random' in model.lower() or 'forest' in model.lower():
+            params = [{'preprocess': [''], 'scaling': [''], 'estimator': ['random forest'],
+                       'estimator__n_estimators': [100], 'estimator__max_depth': [10],
+                       'estimator__max_features': [90]}]
+        elif 'logreg' in model.lower() or 'logistic' in model.lower() or 'regression' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['logreg'], 'estimator__penalty': ['l1'],
+                       'estimator__C': [2.5], 'estimator__solver': ['saga']}]
+            # params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['logreg'], 'estimator__C': [2.5]}]
+        elif 'mlp' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['mlp'], 'estimator__alpha': [0.5],
+                       'estimator__activation': ['relu'], 'estimator__hidden_layer_sizes': [128]}]
+        elif 'svc' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['svm'], 'estimator__gamma': [0.005],
+                       'estimator__C': [50]}]
+    else:
+        if 'gradient' in model.lower():
+            params = [{'preprocess': [''], 'scaling': [''], 'estimator': ['gradient boosting'],
+                       'estimator__n_estimators': [25, 35, 50, 65, 80, 100], 'estimator__max_depth': [3, 4, 5, 6],
+                       'estimator__learning_rate': [0.01, 0.05, 0.075, 0.1, 0.15, 0.2]}]
+        elif 'random' in model.lower() or 'forest' in model.lower():
+            params = [{'preprocess': [''], 'scaling': [''], 'estimator': ['random forest'],
+                       'estimator__n_estimators': [50, 100, 150, 200], 'estimator__max_depth': [4, 6, 8, 10, 12, 14],
+                       'estimator__max_features': [50, 60, 70, 80, 90, 100]}]
+        elif 'logreg' in model.lower() or 'logistic' in model.lower() or 'regression' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['logreg'], 'estimator__penalty': ['l1'],
+                       'estimator__C': [0.01, 0.1, 0.5, 1, 2.5, 5, 7.5, 10, 25, 100], 'estimator__solver': ['saga']},
+                      {'preprocess': [''], 'scaling': ['std'], 'estimator': ['logreg'], 'estimator__penalty': ['l2'],
+                       'estimator__C': [0.01, 0.1, 0.5, 1, 2.5, 5, 7.5, 10, 25, 100],
+                       'estimator__solver': ['saga', 'lbfgs', 'liblinear', 'newton-cholesky']}]
+        elif 'mlp' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std', 'norm'], 'estimator': ['mlp'],
+                       'estimator__alpha': [0.1, 0.25, 0.5, 0.75, 1, 2.5, 5], 'estimator__activation': ['relu'],
+                       'estimator__hidden_layer_sizes': [64, 128, 256, [128, 64], [128, 64, 32]]}]
+        elif 'svc' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std', 'norm'], 'estimator': ['svm'],
+                       'estimator__gamma': [0.0005, 0.001, 0.005, 0.01, 0.05, 0.1],
+                       'estimator__C': [0.1, 1, 5, 10, 25, 50, 75, 100, 500]}]
+    return params

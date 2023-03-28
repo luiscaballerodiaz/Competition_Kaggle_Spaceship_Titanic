@@ -1,77 +1,8 @@
 import pandas as pd
 import numpy as np
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
 
 
-def dataset_correlations(visualization, df, fcat):
-    feat_cat = fcat.copy()
-    df = df.dropna()
-    df['Deck'] = df['Cabin'].str[0]
-    df['Num'] = df['Cabin'].str[2:-2]
-    df['Side'] = df['Cabin'].str[-1]
-    df['Group'] = df['PassengerId'].str[:4].astype('int32')
-    df['GroupSize'] = df['Group'].apply(lambda x: df['Group'].value_counts()[x])
-    df['Trip'] = np.where(
-        (df['HomePlanet'] == 'Earth') & (df['Destination'] == 'TRAPPIST-1e'), 1, np.where(
-            (df['HomePlanet'] == 'Earth') & (df['Destination'] == '55 Cancri e'), 2, np.where(
-                (df['HomePlanet'] == 'Earth') & (df['Destination'] == 'PSO J318.5-22'), 3, np.where(
-                    (df['HomePlanet'] == 'Europa') & (df['Destination'] == 'TRAPPIST-1e'), 4, np.where(
-                        (df['HomePlanet'] == 'Europa') & (df['Destination'] == '55 Cancri e'), 5, np.where(
-                            (df['HomePlanet'] == 'Europa') & (df['Destination'] == 'PSO J318.5-22'), 6, np.where(
-                                (df['HomePlanet'] == 'Mars') & (df['Destination'] == 'TRAPPIST-1e'), 7, np.where(
-                                    (df['HomePlanet'] == 'Mars') & (df['Destination'] == '55 Cancri e'), 8, np.where(
-                                        (df['HomePlanet'] == 'Mars') & (df['Destination'] == 'PSO J318.5-22'), 9,
-                                        -1)))))))))
-    df['Num'] = df['Num'].astype('int32')
-    df['NumBin'] = np.where(
-        df['Num'] < 300, 1, np.where(
-            df['Num'] < 600, 2, np.where(
-                df['Num'] < 900, 3, np.where(
-                    df['Num'] < 1200, 4, np.where(
-                        df['Num'] < 1500, 5, 6)))))
-    df['SpendingBin'] = np.where((df['RoomService'] + df['FoodCourt'] + df['ShoppingMall'] +
-                                  df['Spa'] + df['VRDeck']) > 0, True, False)
-    df['AgeBin'] = np.where(df['Age'] < 18, 1, np.where(df['Age'] < 40, 2, 3))
-
-    # Update list for cat feats to plot and model (note it does not include feats with high categories for plotting)
-    feat_cat_plot = [feat for feat in feat_cat if feat not in ['Name', 'Cabin', 'PassengerId']]
-    feat_cat_plot.extend(['GroupSize', 'Deck', 'Side', 'AgeBin', 'NumBin', 'Trip', 'SpendingBin'])
-    for feat in feat_cat_plot:
-        visualization.cat_features(df, feat_cat_plot, feat)
-    for feat in feat_cat_plot:
-        visualization.combined_features(df, feat_cat_plot, feat)
-
-
-def feature_engineering(visualization, df_ini, fcat, fnum, sim, plots=0, column_target=''):
-    feat_cat = fcat.copy()
-    feat_num = fnum.copy()
-    df = df_ini.copy()
-    print(f'\nOriginal dataframe size: {df.shape}')
-    df.replace('Europe', 'Europa')
-
-    if column_target != '':
-        visualization.pie_plot(df, column_target)  # Plot target class distribution
-        df = df.dropna(axis=0, subset=column_target)  # Consider ONLY rows with non NA values in target column
-
-    # Check NA values and calculate the affected rows with NA values
-    print(f'Initial amount of NA values:')
-    print(df.isna().sum())
-    df_na = df.dropna()
-    na_rows = df.shape[0] - df_na.shape[0]
-    print('Rows with NA values: {} ({:.1f} %)'.format(na_rows, 100 * na_rows / df.shape[0]))
-
-    # Check the feature deviations among same groups
-    check_group_correlation(df_na, feat_cat)
-
-    df['Deck'] = df['Cabin'].str[0]
-    df['Num'] = df['Cabin'].str[2:-2]
-    df['Side'] = df['Cabin'].str[-1]
-    df['Group'] = df['PassengerId'].str[:4].astype('int32')
-    df['GroupSize'] = df['Group'].apply(lambda x: df['Group'].value_counts()[x])
-
-    df = fill_missing_values(df)  # Fill in missing values
-
+def create_new_features(df):
     # TRIP
     df['Trip'] = np.where(
         (df['HomePlanet'] == 'Earth') & (df['Destination'] == 'TRAPPIST-1e'), 1, np.where(
@@ -95,76 +26,116 @@ def feature_engineering(visualization, df_ini, fcat, fnum, sim, plots=0, column_
                         df['Num'] < 1500, 5, 6)))))
 
     # PURCHASES
-    df['FoodBin'] = np.where(df['FoodCourt'] > 0, True, False)
-    df['MallBin'] = np.where(df['ShoppingMall'] > 0, True, False)
-    df['SpaBin'] = np.where(df['Spa'] > 0, True, False)
-    df['DeckBin'] = np.where(df['VRDeck'] > 0, True, False)
-    df['RoomBin'] = np.where(df['RoomService'] > 0, True, False)
-    df['SpendingDist'] = df[['RoomBin', 'MallBin', 'DeckBin', 'SpaBin', 'FoodBin']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
+    df['FoodBin'] = np.where(df['FoodCourt'] == 0, 0, np.where(
+        df['FoodCourt'] < 2000, 1, 2))
+    df['MallBin'] = np.where(df['ShoppingMall'] == 0, 0, np.where(
+        df['ShoppingMall'] < 1100, 1, 2))
+    df['SpaBin'] = np.where(df['Spa'] == 0, 0, np.where(
+        df['Spa'] < 2500, 1, 2))
+    df['DeckBin'] = np.where(df['VRDeck'] == 0, 0, np.where(
+        df['VRDeck'] < 2500, 1, 2))
+    df['RoomBin'] = np.where(df['RoomService'] == 0, 0, np.where(
+        df['RoomService'] < 3000, 1, 2))
+
+    df['SpendingDist'] = df[['RoomBin', 'MallBin', 'DeckBin', 'SpaBin', 'FoodBin']].apply(
+        lambda x: '_'.join(x.values.astype(str)), axis=1)
     df['SpendingBin'] = np.where((df['RoomService'] + df['FoodCourt'] + df['ShoppingMall'] +
                                   df['Spa'] + df['VRDeck']) > 0, True, False)
     df['Spending'] = df[['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']].apply(
-         lambda x: sum(x.values > 0), axis=1)
+        lambda x: sum(x.values > 0), axis=1)
     df['TotalSpending'] = df[['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']].apply(
         lambda x: sum(x.values), axis=1)
 
     # AGE
     df['AgeBin'] = np.where(df['Age'] < 18, 1, np.where(df['Age'] < 40, 2, 3))
 
-    # Visualization of the num and cat features
-    if plots == 1:
-        list_cat_plot = ['HomePlanet', 'CryoSleep', 'Destination', 'Deck', 'AgeBin', 'NumBin', 'SpendingBin', 'Trip',
-                         'Side']
-        list_num_plot = ['RoomService', 'ShoppingMall', 'FoodCourt', 'Spa', 'VRDeck', 'TotalSpending', 'Age']
-        for feat in list_num_plot:
-            if feat == 'Age':
-                binw = 1
-            elif feat == 'Num':
-                binw = 25
-            else:
-                binw = 100
-            visualization.num_features(df, feat_num=feat, binary_feat=column_target, bins_width=binw)
-        visualization.combined_features(df, list_cat_plot, column_target)
-        visualization.cat_features(df, list_cat_plot, column_target)
+    return df
+
+
+def feature_engineering(visualization, df_ini, fcat, model=None, column_target=None):
+    feat_cat = fcat.copy()
+    df = df_ini.copy()
+
+    print(f'\nOriginal dataframe size: {df.shape}')
+    df.replace('Europe', 'Europa')
+
+    if column_target is not None:
+        visualization.pie_plot(df, column_target)  # Plot target class distribution
+        df = df.dropna(axis=0, subset=column_target)  # Consider ONLY rows with non NA values in target column
+
+    # Check NA values and calculate the affected rows with NA values
+    print(f'Initial amount of NA values:')
+    print(df.isna().sum())
+    df_na = df.dropna()
+    na_rows = df.shape[0] - df_na.shape[0]
+    print('Rows with NA values: {} ({:.1f} %)'.format(na_rows, 100 * na_rows / df.shape[0]))
+
+    # Check the feature deviations among same groups
+    check_group_correlation(df_na, feat_cat)
+
+    df['Deck'] = df['Cabin'].str[0]
+    df['Num'] = df['Cabin'].str[2:-2]
+    df['Side'] = df['Cabin'].str[-1]
+    df['Group'] = df['PassengerId'].str[:4].astype('int32')
+    df['Person'] = df['PassengerId'].str[5:].astype('int32')
+    df['GroupSize'] = df['Group'].apply(lambda x: df['Group'].value_counts()[x])
+
+    df = fill_missing_values(df)  # Fill in missing values
+    df = create_new_features(df)  # Add new features to dataframe
+
+    # CREATE DEFINITIVE DATAFRAME AND LIST OF NUM AND CAT FEATURES
+    df_post = pd.DataFrame()
+    list_cat = ['HomePlanet', 'CryoSleep', 'Destination', 'Deck', 'AgeBin', 'NumBin', 'ShipLocation', 'SpendingBin',
+                'Trip', 'SpendingDist']
+    list_num = ['RoomService', 'ShoppingMall', 'FoodCourt', 'Spa', 'VRDeck', 'TotalSpending', 'Age']
 
     # COMBINED FEATURE
     df['ShipLocation'] = df[['NumBin', 'Deck', 'Side']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-    if sim != 2:
-        df['F1'] = df[['HomePlanet', 'CryoSleep']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-        df['F2'] = df[['Deck', 'SpendingBin']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-        df['F3'] = df[['CryoSleep', 'Trip']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-        df['F4'] = df[['HomePlanet', 'Deck', 'SpendingDist']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-        df['F5'] = df[['Destination', 'MallBin']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-        df['F6'] = df[['AgeBin', 'FoodBin']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
-        df['F7'] = df[['Trip', 'RoomBin']].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
+    if model is None:
+        comb_feats = [['CryoSleep', 'Trip'], ['AgeBin', 'MallBin'], ['NumBin', 'FoodBin'], ['SpendingBin', 'DeckBin'],
+                      ['HomePlanet', 'Destination'], ['ShipLocation', 'Trip'], ['AgeBin', 'FoodBin'],
+                      ['CryoSleep', 'Deck', 'Trip']]
+    # LOGISTIC REGRESSION
+    elif 'logreg' in model.lower():
 
-    # Create definitive dataframe and list of num and cat features
-    df_post = pd.DataFrame()
-    list_cat = ['HomePlanet', 'CryoSleep', 'Destination', 'Deck', 'AgeBin', 'NumBin', 'ShipLocation', 'SpendingBin',
-                'Trip']
-    if sim != 2:
-        list_cat.extend(['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7'])
-    list_num = ['RoomService', 'ShoppingMall', 'FoodCourt', 'Spa', 'VRDeck', 'TotalSpending', 'Age']
+        comb_feats = [['CryoSleep', 'Trip'], ['AgeBin', 'MallBin'], ['NumBin', 'FoodBin'], ['SpendingBin', 'DeckBin'],
+                      ['HomePlanet', 'Destination'], ['CryoSleep', 'Deck', 'Trip']]
+    # GRADIENT BOOSTING
+    elif 'gradient' in model.lower():
+        comb_feats = [['HomePlanet', 'SpaBin'], ['Destination', 'Deck', 'FoodBin']]
+    # MLP
+    elif 'mlp' in model.lower():
+        comb_feats = [['ShipLocation', 'Trip']]
+    # SVC
+    elif 'svc' in model.lower():
+        comb_feats = [['AgeBin', 'FoodBin'], ['CryoSleep', 'Trip']]
+    # RANDOM FOREST
+    elif 'random' in model.lower():
+        comb_feats = [['NumBin', 'Trip'], ['ShipLocation', 'RoomBin'], ['CryoSleep', 'Trip', 'RoomBin']]
+
+    print('\nCOMBINED FEATURES CONSIDERED IN THE DATAFRAME: {}\n'.format(comb_feats))
+    for i, comb_feat in enumerate(comb_feats):
+        df['F' + str(i+1)] = df[comb_feat].apply(lambda x: '_'.join(x.values.astype(str)), axis=1)
+        list_cat.append('F' + str(i+1))
+
     df_post[list_cat] = df[list_cat]
     df_post[list_num] = df[list_num]
-    if column_target != '':
-        df_post[column_target] = df[column_target]
 
     # Create full dataframe with all num and cat features to sweep parameters and look for the most optimal combinations
-    all_cat = ['HomePlanet', 'CryoSleep', 'Destination', 'Deck', 'AgeBin', 'NumBin', 'ShipLocation', 'SpendingBin',
-               'Trip', 'Side', 'Spending', 'SpendingDist', 'FoodBin', 'MallBin', 'SpaBin','DeckBin', 'RoomBin',
-               'GroupSize', 'Group', 'PassengerId', 'Cabin', 'Name', 'VIP']
-
     df_full = df.copy()
-    list_num_full = ['RoomService', 'ShoppingMall', 'FoodCourt', 'Spa', 'VRDeck', 'TotalSpending', 'Age']
-    list_cat_full = ['HomePlanet', 'CryoSleep', 'Destination', 'Deck', 'AgeBin', 'NumBin', 'ShipLocation',
-                     'SpendingBin', 'Trip', 'FoodBin', 'MallBin', 'SpaBin', 'DeckBin', 'RoomBin']
-    remove_feat = [f for f in all_cat if f not in list_cat_full]
+    all_cat = list(df.columns)
+    list_cat_sweep = ['HomePlanet', 'CryoSleep', 'Destination', 'Deck', 'AgeBin', 'NumBin', 'ShipLocation',
+                      'SpendingBin', 'Trip', 'FoodBin', 'MallBin', 'SpaBin', 'DeckBin', 'RoomBin', 'SpendingDist']
+    remove_feat = [f for f in all_cat if f not in list_cat_sweep]
     df_full.drop(remove_feat, axis=1, inplace=True)
+
+    if column_target is not None:
+        df_post[column_target] = df[column_target]
+        df_full[column_target] = df[column_target]
 
     print(f'Output dataframe size: {df_post.shape}\n')
 
-    return df_post, list_cat, list_num, df_full, list_cat_full, list_num_full
+    return df_post, list_cat, list_num, df_full, list_cat_sweep
 
 
 def check_group_correlation(df_base, fcat):
@@ -264,10 +235,53 @@ def fill_missing_values(df):
             if spending_na[i]:
                 if df.loc[i, 'CryoSleep'] or df.loc[i, list_spend].sum() == 0 or df.loc[i, 'Age'] <= 18:
                     df.loc[i, spend] = 0
-                else:
-                    df.loc[i, spend] = 1000
+                elif spend == 'RoomService':
+                    if df.loc[i, 'FoodCourt'] <= 300 or df.loc[i, 'ShoppingMall'] > 0 or \
+                            df.loc[i, 'HomePlanet'] == 'Mars' or df.loc[i, 'Deck'] in ['D', 'E', 'F'] or \
+                            df.loc[i, 'VRDeck'] == 0 or float(df.loc[i, 'Num']) > 1500 or 0 < df.loc[i, 'Spa'] <= 300:
+                        df.loc[i, 'RoomService'] = 150
+                    else:
+                        df.loc[i, 'RoomService'] = 100
+                elif spend == 'FoodCourt':
+                    if df.loc[i, 'Spa'] > 2000 or df.loc[i, 'VRDeck'] > 2000:
+                        df.loc[i, 'FoodCourt'] = 150
+                    elif 300 < df.loc[i, 'RoomService'] <= 600:
+                        df.loc[i, 'FoodCourt'] = 450
+                    elif 600 < df.loc[i, 'RoomService'] <= 1000:
+                        df.loc[i, 'FoodCourt'] = 800
+                    elif 1000 < df.loc[i, 'RoomService'] <= 2000 or df.loc[i, 'Deck'] in ['A']:
+                        df.loc[i, 'FoodCourt'] = 1500
+                    elif 2000 < df.loc[i, 'RoomService'] <= 3000:
+                        df.loc[i, 'FoodCourt'] = 2500
+                    elif df.loc[i, 'RoomService'] >= 3000 or df.loc[i, 'HomePlanet'] == 'Europa' or \
+                            df.loc[i, 'Deck'] in ['B', 'C']:
+                        df.loc[i, 'FoodCourt'] = 5000
+                    else:
+                        df.loc[i, 'FoodCourt'] = 100
+                elif spend == 'ShoppingMall':
+                    if 0 < df.loc[i, 'FoodCourt'] <= 300 or df.loc[i, 'Deck'] in ['D'] or \
+                            0 < df.loc[i, 'RoomService'] <= 300 or df.loc[i, 'HomePlanet'] == 'Mars':
+                        df.loc[i, 'ShoppingMall'] = 150
+                    else:
+                        df.loc[i, 'ShoppingMall'] = 200
+                elif spend == 'Spa':
+                    if df.loc[i, 'VRDeck'] > 1000 or df.loc[i, 'FoodCourt'] > 1000 or \
+                            df.loc[i, 'Deck'] in ['A', 'B', 'C'] or 300 < df.loc[i, 'VRDeck'] <= 600 or \
+                            300 < df.loc[i, 'FoodCourt'] <= 600 or df.loc[i, 'ShoppingMall'] > 3000 or \
+                            df.loc[i, 'RoomService'] > 1000 or df.loc[i, 'HomePlanet'] == 'Europa':
+                        df.loc[i, 'Spa'] = 50
+                    else:
+                        df.loc[i, 'Spa'] = 0
+                elif spend == 'VRDeck':
+                    if df.loc[i, 'FoodCourt'] > 1000 or df.loc[i, 'RoomService'] > 1000 or df.loc[i, 'Spa'] > 1000 or \
+                            df.loc[i, 'Deck'] in ['A', 'B', 'C'] or 300 < df.loc[i, 'FoodCourt'] <= 600 or \
+                            df.loc[i, 'ShoppingMall'] > 3000 or df.loc[i, 'HomePlanet'] == 'Europa':
+                        df.loc[i, 'VRDeck'] = 150
+                    else:
+                        df.loc[i, 'VRDeck'] = 50
 
-    # #### VIP FEATURE #####
+
+                # #### VIP FEATURE #####
     # VIP assigned to False due to the unbalanced distribution
     df['VIP'].fillna(False, inplace=True)
 
@@ -340,3 +354,32 @@ def fill_missing_values(df):
             else:
                 df.loc[i, 'HomePlanet'] = df['HomePlanet'].value_counts().index[0]
     return df
+
+
+def dataset_correlations(visualization, df_ini, column_target=''):
+    df = df_ini.copy()
+    df = df.dropna()
+    df['Deck'] = df['Cabin'].str[0]
+    df['Num'] = df['Cabin'].str[2:-2]
+    df['Side'] = df['Cabin'].str[-1]
+    df['Group'] = df['PassengerId'].str[:4].astype('int32')
+    df['Person'] = df['PassengerId'].str[5:].astype('int32')
+    df['GroupSize'] = df['Group'].apply(lambda x: df['Group'].value_counts()[x])
+
+    df = create_new_features(df)
+
+    # Update list for cat feats to plot and model (note it does not include feats with high categories for plotting)
+    list_cat_plot = ['HomePlanet', 'CryoSleep', 'Destination', 'Deck', 'AgeBin', 'NumBin', 'SpendingBin', 'Trip',
+                     'Side', 'FoodBin', 'MallBin', 'SpaBin', 'DeckBin', 'RoomBin', 'Person']
+    if column_target == '':
+        for feat in list_cat_plot:
+            visualization.cat_features(df, list_cat_plot, feat)
+        for feat in list_cat_plot:
+            visualization.combined_features(df, list_cat_plot, feat)
+    else:
+        list_num_plot = ['Num', 'RoomService', 'ShoppingMall', 'FoodCourt', 'Spa', 'VRDeck', 'TotalSpending', 'Age']
+        list_bin_width = [25, 100, 100, 100, 100, 100, 250, 1]
+        for binw, feat in zip(list_bin_width, list_num_plot):
+            visualization.num_features(df, feat_num=feat, binary_feat=column_target, bins_width=binw)
+        visualization.combined_features(df, list_cat_plot, column_target)
+        visualization.cat_features(df, list_cat_plot, column_target)
