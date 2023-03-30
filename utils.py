@@ -63,9 +63,10 @@ def pipeline_gridsearch(x_train, x_test, y_train, y_test, index_num, params, sco
     print(pd_grid)
     print('\nGrid search time: {:.1f}\n'.format(time.time() - time0))  # Calculate grid search timing
     print("Best parameters: {}\n".format(grid_search.best_params_))  # Show best parameters
-    print("Best cross-validation score: {:.4f}\n".format(grid_search.best_score_))  # Show best scores
+    print("BEST MODEL CROSS VALIDATION SCORE: {:.4f}\n".format(grid_search.best_score_))  # Show best scores
     model = grid_search.best_estimator_  # Create model with best parametrization
-    print('\nBEST MODEL TEST SCORE: {:.4f}\n'.format(model.score(x_test, y_test)))  # Calculate best model val acc
+    print('\nBEST MODEL TRAIN SCORE: {:.4f}\n'.format(model.score(x_train, y_train)))
+    print('\nBEST MODEL TEST SCORE: {:.4f}\n'.format(model.score(x_test, y_test)))
     if pass_id is not None:
         y_sub = model.predict(x_sub)
         df_submission = pass_id.to_frame()
@@ -169,7 +170,7 @@ def onehot_split(test_size, df_ini, column_target, feat_cat, feat_num, df_sub_in
         column = column[column.index('__')+2:]
         if column in feat_num:
             index_num.append(i)
-    # Create training and testing sets with 80/20% keeping target distribution same as original
+    # Create training and testing sets keeping target distribution same as original
     x_train, x_test, y_train, y_test = train_test_split(df, target, test_size=test_size,
                                                         shuffle=True, stratify=target, random_state=1)
     x_test = np.array(x_test)
@@ -198,6 +199,9 @@ def get_sim_params(model, mode):
         elif 'mlp' in model.lower():
             params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['mlp'], 'estimator__alpha': [0.5],
                        'estimator__activation': ['relu'], 'estimator__hidden_layer_sizes': [128]}]
+        elif 'linear svc' in model.lower() or 'linearsvc' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['linearsvc'],
+                       'estimator__C': [0.1], 'estimator__penalty': ['l1']}]
         elif 'svc' in model.lower():
             params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['svm'], 'estimator__gamma': [0.005],
                        'estimator__C': [50]}]
@@ -220,6 +224,10 @@ def get_sim_params(model, mode):
             params = [{'preprocess': [''], 'scaling': ['std', 'norm'], 'estimator': ['mlp'],
                        'estimator__alpha': [0.1, 0.25, 0.5, 0.75, 1, 2.5, 5], 'estimator__activation': ['relu'],
                        'estimator__hidden_layer_sizes': [64, 128, 256, [128, 64], [128, 64, 32]]}]
+        elif 'linear svc' in model.lower() or 'linearsvc' in model.lower():
+            params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['linearsvc'],
+                       'estimator__C': [0.01, 0.05, 0.1, 0.2, 0.35, 0.5, 1, 2.5, 5, 7.5, 10, 25, 100],
+                       'estimator__penalty': ['l1', 'l2']}]
         elif 'svc' in model.lower():
             params = [{'preprocess': [''], 'scaling': ['std', 'norm'], 'estimator': ['svm'],
                        'estimator__gamma': [0.0005, 0.001, 0.005, 0.01, 0.05, 0.1],

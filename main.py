@@ -12,8 +12,10 @@ sim = 1
 # sim = 1 --> Individual model grid search cross validation and generate submission for best model
 # sim = 2 --> Grid search cross validation loop using as input a different new combined feature
 # sim = 3 --> Ensemble models and generate submission
-ensemble = ['logreg', 'svc', 'mlp']
-sim_model = 'mlp'
+ensemble = ['linearsvc', 'svc']
+weights = [0.575, 0.425]
+th = 0.5
+sim_model = 'logreg'
 sim_method = 1
 # sim_method = 0 --> single parametrization simulation
 # sim_method = 1 --> sweep parametrization simulation
@@ -51,11 +53,10 @@ else:
             sweep.param_sweep_matrix(params=pd_grid['params'], test_score=pd_grid['mean_test_score'])
         elif sim == 2:
             best_feats, best_scores = utils.feat_sweep_gridsearch(
-                test_size, df, df_full, params, target, feat_cat, feat_cat_sweep, feat_num, 2)
+                test_size, df, df_full, params, target, feat_cat, feat_cat_sweep, feat_num, 3)
     elif sim == 3:
         tot_test_pred = np.zeros([round(len(df_original) * test_size), len(ensemble)])
         tot_sub_pred = np.zeros([len(df_submission), len(ensemble)])
-        tot_cv_acc = np.zeros([len(ensemble)])
         for i, current_model in enumerate(ensemble):
             # Apply feature engineering
             df, feat_cat, feat_num, _, _ = data_processing.feature_engineering(
@@ -65,10 +66,9 @@ else:
             # One hot encoding and train, val and test split
             x_sub, x_train, x_test, y_train, y_test, index_num = utils.onehot_split(
                 test_size, df, target, feat_cat, feat_num, df_sub)
-            test_pred, sub_pred, cv_acc = ensembling.make_predictions(
+            test_pred, sub_pred = ensembling.make_predictions(
                 current_model, x_sub, x_train, x_test, y_train, y_test, index_num)
             # Store the algorithm results in a combined matrix
             tot_test_pred[:, i] = test_pred
             tot_sub_pred[:, i] = sub_pred
-            tot_cv_acc[i] = cv_acc
-        ensembling.ensemble_predictions(pass_id, tot_test_pred, tot_sub_pred, tot_cv_acc, y_test)
+        ensembling.ensemble_predictions(pass_id, weights, th, tot_test_pred, tot_sub_pred, y_test)

@@ -5,9 +5,11 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import LinearSVC
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.calibration import CalibratedClassifierCV
 
 
 def make_predictions(input_model, x_sub, x_train, x_test, y_train, y_test, columns):
@@ -30,6 +32,12 @@ def make_predictions(input_model, x_sub, x_train, x_test, y_train, y_test, colum
         scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
         pipe = Pipeline([('scaling', scale), ('estimator', model)])
 
+    elif 'linearsvc' in input_model.lower():
+        svc = LinearSVC(random_state=0, dual=False, C=0.1, penalty='l1')
+        model = CalibratedClassifierCV(svc)
+        scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
+        pipe = Pipeline([('scaling', scale), ('estimator', model)])
+
     elif 'svc' in input_model.lower():
         model = SVC(random_state=0, probability=True, C=50, gamma=0.005)
         scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
@@ -42,59 +50,37 @@ def make_predictions(input_model, x_sub, x_train, x_test, y_train, y_test, colum
     grid_search.fit(x_train, y_train)
     cv_acc = grid_search.best_score_
     print("{} CROSS VALIDATION SCORE: {:.4f}\n".format(input_model.upper(), cv_acc))
+    print('{} TRAIN SCORE: {:.4f}\n'.format(input_model.upper(), grid_search.score(x_train, y_train)))
     print('{} TEST SCORE: {:.4f}\n'.format(input_model.upper(), grid_search.score(x_test, y_test)))
     test_preds = grid_search.predict_proba(x_test)[:, 1]
     sub_preds = grid_search.predict_proba(x_sub)[:, 1]
 
-    return test_preds, sub_preds, cv_acc
+    return test_preds, sub_preds
 
 
-def ensemble_predictions(pass_id, y_test_preds, y_sub_preds, acc, y_test):
+def ensemble_predictions(pass_id, weights, th, y_preds, y_sub_preds, y_true):
 
-    y_test = np.array(y_test)
-    # Optimal weight and threshold calculation according to cross validation performance
-    opt_weights1 = acc - min(acc) * 0.999
-    opt_weights1 /= sum(opt_weights1)
-    opt_th1, opt_acc1 = optimal_threshold(y_test, y_test_preds, opt_weights1)
-    print('\nOPTIMAL WEIGHTS (distribution based on cross validation performance): {}'.format(opt_weights1))
-    print('OPTIMAL THRESHOLD: {:.4f}'.format(opt_th1))
-    print('ENSEMBLE TEST SCORE WITH OPTIMAL WEIGHTS AND DECISION THRESHOLD: {:.4f}'.format(opt_acc1))
-
-    # Optimal weight and threshold calculation uniform distribution among models
-    opt_weights2 = [1 / len(acc)] * 3
-    opt_th2, opt_acc2 = optimal_threshold(y_test, y_test_preds, opt_weights2)
-    print('\nOPTIMAL WEIGHTS (uniform distribution): {}'.format(opt_weights2))
-    print('OPTIMAL THRESHOLD: {:.4f}'.format(opt_th2))
-    print('ENSEMBLE TEST SCORE WITH OPTIMAL WEIGHTS AND DECISION THRESHOLD: {:.4f}'.format(opt_acc2))
-
+    y_true = np.array(y_true)
     # Optimal weight and threshold calculation with customized weights
-    opt_weights3 = [0.3, 0.5, 0.2]
-    opt_th3 = 0.5
-    opt_acc3 = accuracy_score(y_test, y_test_preds, opt_weights3, opt_th3)
-    print('\nOPTIMAL WEIGHTS (customized): {}'.format(opt_weights3))
-    print('OPTIMAL THRESHOLD: {:.4f}'.format(opt_th3))
-    print('ENSEMBLE TEST SCORE WITH OPTIMAL WEIGHTS AND DECISION THRESHOLD: {:.4f}'.format(opt_acc3))
+    acc = accuracy_score(y_true, y_preds, weights, th)
+    print('\nOPTIMAL WEIGHTS (customized): {}'.format(weights))
+    print('OPTIMAL THRESHOLD: {:.4f}'.format(th))
+    print('ENSEMBLE TEST SCORE WITH OPTIMAL WEIGHTS AND DECISION THRESHOLD: {:.4f}'.format(acc))
 
     # Create submission
-    y_sub1 = np.where(np.dot(y_sub_preds, opt_weights1) >= opt_th1, True, False)
-    y_sub2 = np.where(np.dot(y_sub_preds, opt_weights2) >= opt_th2, True, False)
-    y_sub3 = np.where(np.dot(y_sub_preds, opt_weights3) >= opt_th3, True, False)
+    y_sub = np.where(np.dot(y_sub_preds, weights) >= th, True, False)
     df_submission = pass_id.to_frame()
-    df_submission['Transported'] = y_sub1
-    df_submission.to_csv('Submission1.csv', index=False)
-    df_submission['Transported'] = y_sub2
-    df_submission.to_csv('Submission2.csv', index=False)
-    df_submission['Transported'] = y_sub3
-    df_submission.to_csv('Submission3.csv', index=False)
+    df_submission['Transported'] = y_sub
+    df_submission.to_csv('Submission.csv', index=False)
 
 
-def optimal_threshold(y_test, y_test_preds, opt_weights):
+def optimal_threshold(y_true, y_preds, opt_weights):
     # Optimal threshold calculation
     max_acc = 0
     max_th = 0
     threshold = np.linspace(0.25, 0.75, 100)
     for th in threshold:
-        acc = accuracy_score(y_test, y_test_preds, opt_weights, th)
+        acc = accuracy_score(y_true, y_preds, opt_weights, th)
         if acc >= max_acc:
             max_acc = acc
             max_th = th

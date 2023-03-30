@@ -95,21 +95,18 @@ def feature_engineering(visualization, df_ini, fcat, model=None, column_target=N
         comb_feats = [['CryoSleep', 'Trip'], ['AgeBin', 'MallBin'], ['NumBin', 'FoodBin'], ['SpendingBin', 'DeckBin'],
                       ['HomePlanet', 'Destination'], ['ShipLocation', 'Trip'], ['AgeBin', 'FoodBin'],
                       ['CryoSleep', 'Deck', 'Trip']]
-    # LOGISTIC REGRESSION
     elif 'logreg' in model.lower():
-
         comb_feats = [['CryoSleep', 'Trip'], ['AgeBin', 'MallBin'], ['NumBin', 'FoodBin'], ['SpendingBin', 'DeckBin'],
                       ['HomePlanet', 'Destination'], ['CryoSleep', 'Deck', 'Trip']]
-    # GRADIENT BOOSTING
     elif 'gradient' in model.lower():
         comb_feats = [['HomePlanet', 'SpaBin'], ['Destination', 'Deck', 'FoodBin']]
-    # MLP
     elif 'mlp' in model.lower():
         comb_feats = [['ShipLocation', 'Trip']]
-    # SVC
+    elif 'linear svc' in model.lower() or 'linearsvc' in model.lower():
+        comb_feats = [['Deck', 'SpendingBin'], ['HomePlanet', 'CryoSleep'], ['Destination', 'SpaBin'],
+                      ['Deck', 'AgeBin'], ['Destination', 'AgeBin', 'ShipLocation']]
     elif 'svc' in model.lower():
         comb_feats = [['AgeBin', 'FoodBin'], ['CryoSleep', 'Trip']]
-    # RANDOM FOREST
     elif 'random' in model.lower():
         comb_feats = [['NumBin', 'Trip'], ['ShipLocation', 'RoomBin'], ['CryoSleep', 'Trip', 'RoomBin']]
 
@@ -280,8 +277,7 @@ def fill_missing_values(df):
                     else:
                         df.loc[i, 'VRDeck'] = 50
 
-
-                # #### VIP FEATURE #####
+    # #### VIP FEATURE #####
     # VIP assigned to False due to the unbalanced distribution
     df['VIP'].fillna(False, inplace=True)
 
