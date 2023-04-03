@@ -56,6 +56,11 @@ def feature_engineering(visualization, df_ini, fcat, model=None, column_target=N
     feat_cat = fcat.copy()
     df = df_ini.copy()
 
+    print('Number of unique values in each feature: \n{}\n'.format(df.nunique()))
+    if column_target is not None:
+        for feat in list(df.columns):
+            print('Train set grouped by "{}": \n{}\n'.format(feat, df.groupby([feat, column_target]).size()))
+
     print(f'\nOriginal dataframe size: {df.shape}')
     df.replace('Europe', 'Europa')
 
