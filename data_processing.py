@@ -110,7 +110,7 @@ def feature_engineering(visualization, df_ini, fcat, model=None, column_target=N
     elif 'linear svc' in model.lower() or 'linearsvc' in model.lower():
         comb_feats = [['Deck', 'SpendingBin'], ['HomePlanet', 'CryoSleep'], ['Destination', 'SpaBin'],
                       ['Deck', 'AgeBin'], ['Destination', 'AgeBin', 'ShipLocation']]
-    elif 'svc' in model.lower():
+    elif 'svm' in model.lower():
         comb_feats = [['AgeBin', 'FoodBin'], ['CryoSleep', 'Trip']]
     elif 'random' in model.lower():
         comb_feats = [['NumBin', 'Trip'], ['ShipLocation', 'RoomBin'], ['CryoSleep', 'Trip', 'RoomBin']]

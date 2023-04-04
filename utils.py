@@ -187,11 +187,12 @@ def get_sim_params(model, mode):
     if mode == 0:
         if 'gradient' in model.lower():
             params = [{'preprocess': [''], 'scaling': [''], 'estimator': ['gradient boosting'],
-                       'estimator__n_estimators': [50], 'estimator__max_depth': [5], 'estimator__learning_rate': [0.1]}]
+                       'estimator__n_estimators': [80], 'estimator__max_depth': [5],
+                       'estimator__learning_rate': [0.075]}]
         elif 'random' in model.lower() or 'forest' in model.lower():
             params = [{'preprocess': [''], 'scaling': [''], 'estimator': ['random forest'],
                        'estimator__n_estimators': [100], 'estimator__max_depth': [10],
-                       'estimator__max_features': [90]}]
+                       'estimator__max_features': [80]}]
         elif 'logreg' in model.lower() or 'logistic' in model.lower() or 'regression' in model.lower():
             params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['logreg'], 'estimator__penalty': ['l1'],
                        'estimator__C': [2.5], 'estimator__solver': ['saga']}]
@@ -228,7 +229,7 @@ def get_sim_params(model, mode):
             params = [{'preprocess': [''], 'scaling': ['std'], 'estimator': ['linearsvc'],
                        'estimator__C': [0.01, 0.05, 0.1, 0.2, 0.35, 0.5, 1, 2.5, 5, 7.5, 10, 25, 100],
                        'estimator__penalty': ['l1', 'l2']}]
-        elif 'svc' in model.lower():
+        elif 'svm' in model.lower():
             params = [{'preprocess': [''], 'scaling': ['std', 'norm'], 'estimator': ['svm'],
                        'estimator__gamma': [0.0005, 0.001, 0.005, 0.01, 0.05, 0.1],
                        'estimator__C': [0.1, 1, 5, 10, 25, 50, 75, 100, 500]}]

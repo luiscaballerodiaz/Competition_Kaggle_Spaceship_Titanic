@@ -38,7 +38,7 @@ def make_predictions(input_model, x_sub, x_train, x_test, y_train, y_test, colum
         scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
         pipe = Pipeline([('scaling', scale), ('estimator', model)])
 
-    elif 'svc' in input_model.lower():
+    elif 'svm' in input_model.lower():
         model = SVC(random_state=0, probability=True, C=50, gamma=0.005)
         scale = ColumnTransformer(transformers=[('scaling', StandardScaler(), columns)], remainder='passthrough')
         pipe = Pipeline([('scaling', scale), ('estimator', model)])
