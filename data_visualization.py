@@ -118,4 +118,3 @@ class DataPlot:
         plt.savefig('Plots\\' + binary_feat.title() + ' distribution grouped by ' + feat_num + '.png',
                     bbox_inches='tight')
         plt.close()
-

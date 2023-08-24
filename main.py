@@ -7,7 +7,7 @@ import data_processing
 import utils
 
 
-sim = 1
+sim = 3
 # sim = 0 --> Create input feature combination plots
 # sim = 1 --> Individual model grid search cross validation and generate submission for best model
 # sim = 2 --> Grid search cross validation loop using as input a different new combined feature

@@ -13,8 +13,8 @@ class GridSearchPostProcess:
         self.subplot_row = 2
         self.models = []
         self.dicts = []
-        self.model_step = 'estimator'
-        self.pre_step = 'preprocess'
+        self.estimator = 'estimator'
+        self.pre = 'preprocess'
 
     def param_sweep_matrix(self, params, test_score):
         """Postprocess the cross validation grid search results and plot the parameter sweep"""
@@ -56,7 +56,7 @@ class GridSearchPostProcess:
         - Models: list of the models used in the gridsearch
         - Dicts: list of dicts (one per each model) with the sweep parametrization"""
         for i in range(len(params)):
-            string = str(params[i][self.model_step])
+            string = str(params[i][self.estimator])
             model = string[:string.index('(')]
             if model not in self.models:
                 self.models.append(model)
@@ -69,14 +69,12 @@ class GridSearchPostProcess:
             else:
                 self.dicts[index]['test'] = [test_score[i]]
             for key, value in params[i].items():
-                if key == self.model_step:
+                if key == self.estimator:
                     continue
                 elif '__' in key:
                     key = key.replace(key[:key.index('__') + 2], '')
-                elif key == 'scaling' and value is not None:
-                    value = str(value)[str(value).index('scaling') + 10:str(value).index('()')]
-                elif key == 'preprocess' and value is not None:
-                    value = str(value)[str(value).index('preprocess') + 13:str(value).index('()')]
+                elif key == self.pre and value is not None:
+                    value = str(value)[87:str(value).index('()')]
                 if key in list(self.dicts[index].keys()):
                     self.dicts[index][key] += [value]
                 else:
